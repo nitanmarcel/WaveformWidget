@@ -103,10 +103,10 @@ bool AudioUtil::setFile(QString filePath)
         sf_close(this->sndFile);
     }
     this->sfinfo->format=0;
-        if (! (this->sndFile = sf_open (filePath.c_str(), SFM_READ, this->sfinfo)))
+        if (! (this->sndFile = sf_open (filePath.toStdString().c_str(), SFM_READ, this->sfinfo)))
         {
                 /* Open failed so print an error message. */
-                fprintf (stderr, "failed to open input file \"%s\".\n", filePath.c_str()) ;
+                fprintf (stderr, "failed to open input file \"%s\".\n", filePath.toStdString().c_str()) ;
                 /* Print the error message fron libsndfile. */
                 sf_perror (NULL) ;
                 return false;
