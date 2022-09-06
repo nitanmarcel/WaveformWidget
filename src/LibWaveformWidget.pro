@@ -7,6 +7,8 @@ TEMPLATE = lib
 
 CONFIG += dll
 
+QT += widgets
+
 INCLUDEPATH += /usr/include
 
 SOURCES += WaveformWidget.cpp \
