@@ -34,10 +34,12 @@ using namespace std;
 */
 class WaveformWidget : public QWidget
 {
+    Q_OBJECT
 public:
-    WaveformWidget(string filePath);
+    WaveformWidget();
     ~WaveformWidget();
-    void resetFile(string fileName);
+    void setSource(QString fileName);
+    void resetFile(QString fileName);
     enum FileHandlingMode {FULL_CACHE, DISK_MODE};
     void setColor(QColor color);
     void setFileHandlingMode(FileHandlingMode mode);
@@ -54,7 +56,7 @@ private:
     FileHandlingMode currentFileHandlingMode;
     vector<double> peakVector;
     vector<double> dataVector;
-    string audioFilePath;
+    QString audioFilePath;
     double max_peak;
     double padding;
     QSize lastSize;

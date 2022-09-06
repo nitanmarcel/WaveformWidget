@@ -29,22 +29,27 @@
 \brief Constructs an instance of WaveformWidget.
 @param filePath Valid path to a WAV file.
 */
-WaveformWidget::WaveformWidget(string filePath)
+WaveformWidget::WaveformWidget()
 {
-    this->srcAudioFile = new AudioUtil();
-    this->audioFilePath = filePath;
-    this->currentFileHandlingMode = FULL_CACHE;
-    this->resetFile(this->audioFilePath);
-    this->scaleFactor = -1.0;
-    this->lastSize = this->size();
-    this->padding = DEFAULT_PADDING;
-    this->waveformColor = DEFAULT_COLOR;
 }
 
 /*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
 WaveformWidget::~WaveformWidget()
 {
     delete this->srcAudioFile;
+}
+
+
+void WaveformWidget::setSource(QString fileName)
+{
+    this->srcAudioFile = new AudioUtil();
+    this->audioFilePath = fileName;
+    this->currentFileHandlingMode = FULL_CACHE;
+    this->resetFile(this->audioFilePath);
+    this->scaleFactor = -1.0;
+    this->lastSize = this->size();
+    this->padding = DEFAULT_PADDING;
+    this->waveformColor = DEFAULT_COLOR;
 }
 
 /*!
@@ -57,7 +62,7 @@ minutes' duration) as the entirety of the audio file to be visualized
 by the widget must be loaded into memory.
 @param fileName Valid path to a WAV file
 */
-void WaveformWidget::resetFile(string fileName)
+void WaveformWidget::resetFile(QString fileName)
 {
     this->audioFilePath = fileName;
     this->srcAudioFile->setFile(audioFilePath);

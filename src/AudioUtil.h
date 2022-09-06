@@ -6,9 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
-#include <string>
 #include <vector>
+#include <QString>
 
 /*!
     \file AudioUtil.h
@@ -29,9 +28,9 @@ class AudioUtil
 
 public:
         AudioUtil();
-	AudioUtil(string filePath);
+    AudioUtil(QString filePath);
         ~AudioUtil();
-        bool setFile(string filePath);
+        bool setFile(QString filePath);
         int getNumChannels();
         int getSampleRate();
         int getTotalFrames();
@@ -46,7 +45,7 @@ public:
 private:
         double data [MAX_CHANNELS];
         FileHandlingMode fileHandlingMode;
-        string srcFilePath;
+        QString srcFilePath;
         SNDFILE *sndFile;
         SF_INFO *sfinfo;
         bool sndFileNotEmpty;

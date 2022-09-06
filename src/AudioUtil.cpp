@@ -27,7 +27,7 @@ AudioUtil::AudioUtil()
  * 
  * @param filePath path to a WAV file
 */
-AudioUtil::AudioUtil(string filePath)
+AudioUtil::AudioUtil(QString filePath)
 {
         this->sfinfo = new SF_INFO;
         this->fileHandlingMode = DISK_MODE;
@@ -95,7 +95,7 @@ AudioUtil::FileHandlingMode AudioUtil::getFileHandlingMode()
   *  @param filePath a string representing a valid path to a WAV file.
   *  @return true if file was successfully set, false otherwise.  
   */
-bool AudioUtil::setFile(string filePath)
+bool AudioUtil::setFile(QString filePath)
 {
 
     if(sndFileNotEmpty == true)
