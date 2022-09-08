@@ -41,6 +41,7 @@ public:
     WaveformWidget();
     ~WaveformWidget();
     void setSource(QFileInfo *fileName);
+    void setPaintAllChannels(bool state);
     void resetFile(QFileInfo *fileName);
     enum FileHandlingMode {FULL_CACHE, DISK_MODE};
     void setColor(QColor color);
@@ -62,6 +63,7 @@ private:
     QString audioFilePath;
     double max_peak;
     double padding;
+    bool paintAllChannels;
     QSize lastSize;
     QColor waveformColor;
 

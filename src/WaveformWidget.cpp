@@ -36,6 +36,7 @@
 WaveformWidget::WaveformWidget()
 {
     this->srcAudioFile = new AudioUtil();
+    this->paintAllChannels = true;
     this->convert_process = new QProcess;
     connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConvertedWav);
 }
@@ -302,22 +303,40 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
             double lChannelVal = this->dataVector.at(i);
             double rChannelVal = this->dataVector.at(i+1);
 
-            /*
-                If our zoom-level is such that it would be useful to see blocks
-                representing individual samples, draw such blocks:
-            */
-            if(drawIndividualSamples == true)
+            if (this->paintAllChannels)
             {
-                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
-                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor)));
+                /*
+                    If our zoom-level is such that it would be useful to see blocks
+                    representing individual samples, draw such blocks:
+                */
+                if(drawIndividualSamples == true)
+                {
+                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
+                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor)));
+                }
+
+                /*
+                    Draw lines from previous samples to current samples:
+                */
+                linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan1YMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
+                linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan2YMidpoint+((this->height()/4)*prevRChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor));
             }
+            else
+            {
+                /*
+                    If our zoom-level is such that it would be useful to see blocks
+                    representing individual samples, draw such blocks:
+                */
+                if(drawIndividualSamples == true)
+                {
+                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), yMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
+                }
 
-            /*
-                Draw lines from previous samples to current samples:
-            */
-            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan1YMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
-            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan2YMidpoint+((this->height()/4)*prevRChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor));
-
+                /*
+                    Draw lines from previous samples to current samples:
+                */
+                linePainter.drawLine(MathUtil::round(prevOptimalPosition), yMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), yMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
+            }
 
             prevLChannelVal = lChannelVal;
             prevRChannelVal = rChannelVal;
@@ -407,23 +426,31 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
 
             for(int i = startIndex;  i < endIndex; i+=2)
             {
+                if (this->paintAllChannels)
 
-                int chan1YMidpoint = yMidpoint - this->height()/4;
-                int chan2YMidpoint = yMidpoint + this->height()/4;
+                {
+                    int chan1YMidpoint = yMidpoint - this->height()/4;
+                    int chan2YMidpoint = yMidpoint + this->height()/4;
 
 
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
 
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
+                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
+                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
+                }
+                else
+                {
+                    painter.drawLine(counter, yMidpoint, counter, yMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                    painter.drawLine(counter, yMidpoint, counter, yMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                }
 
                 counter++;
             }
 
     }
 
-    if(srcAudioFile->getNumChannels() == 1)
+    else if(srcAudioFile->getNumChannels() == 1)
     {
            int curIndex = minX;
            int yMidpoint = this->height()/2;
@@ -492,6 +519,11 @@ void WaveformWidget::establishDrawingMode()
 void WaveformWidget::setColor(QColor color)
 {
     this->waveformColor = color;
+}
+
+void WaveformWidget::setPaintAllChannels(bool state)
+{
+    this->paintAllChannels = state;
 }
 
 /**
