@@ -28,7 +28,7 @@ class AudioUtil
 
 public:
         AudioUtil();
-    AudioUtil(QString filePath);
+        AudioUtil(QString filePath);
         ~AudioUtil();
         bool setFile(QString filePath);
         int getNumChannels();
@@ -41,6 +41,7 @@ public:
         enum FileHandlingMode {FULL_CACHE, DISK_MODE};
         FileHandlingMode getFileHandlingMode();
         void setFileHandlingMode(FileHandlingMode mode);
+        bool getSndFIleNotEmpty();
 
 private:
         double data [MAX_CHANNELS];

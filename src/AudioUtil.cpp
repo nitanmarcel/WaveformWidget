@@ -29,10 +29,7 @@ AudioUtil::AudioUtil()
 */
 AudioUtil::AudioUtil(QString filePath)
 {
-        this->sfinfo = new SF_INFO;
-        this->fileHandlingMode = DISK_MODE;
-        sndFileNotEmpty = false;
-	this->setFile(filePath);
+        this->setFile(filePath);
 }
 
 
@@ -141,26 +138,30 @@ bool AudioUtil::setFile(QString filePath)
  */
 vector<double> AudioUtil::calculateNormalizedPeaks()
 {
-        this->peaks.clear();
-
         double *peaksPtr = (double *) malloc(2*sizeof(double));
-
-        sf_command (sndFile, SFC_CALC_NORM_MAX_ALL_CHANNELS, peaksPtr, sizeof(double)*this->getNumChannels()) ;
-
-        if(this->getNumChannels() == 2)
+        if (sndFile != NULL)
         {
-               this->peaks.push_back(peaksPtr[0]);
-               this->peaks.push_back((peaksPtr[1]));
+            this->peaks.clear();
+
+
+
+            sf_command (sndFile, SFC_CALC_NORM_MAX_ALL_CHANNELS, peaksPtr, sizeof(double)*this->getNumChannels()) ;
+
+            if(this->getNumChannels() == 2)
+            {
+                   this->peaks.push_back(peaksPtr[0]);
+                   this->peaks.push_back((peaksPtr[1]));
+            }
+            else if (this->getNumChannels() == 1)
+            {
+                this->peaks.push_back(peaksPtr[0]);
+            } else
+        {
+            perror("Error in AudioUtil::calculateNormalizedPeaks()\n");
         }
-        else if (this->getNumChannels() == 1)
-        {
-            this->peaks.push_back(peaksPtr[0]);
-        } else
-	{
-		perror("Error in AudioUtil::calculateNormalizedPeaks()\n");
-	}
 
-        free(peaksPtr);
+            free(peaksPtr);
+        }
 
         return peaks;
 }
@@ -540,4 +541,10 @@ void AudioUtil::populateCache()
 
     delete[] chunk;
 
+}
+
+
+bool AudioUtil::getSndFIleNotEmpty()
+{
+    return sndFileNotEmpty;
 }

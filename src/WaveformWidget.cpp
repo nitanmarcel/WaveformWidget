@@ -13,16 +13,16 @@
 */
 
 /*!
-	\mainpage WaveformWidget
-       
-	\brief This library provides a Qt widget for visualizing audio waveforms.<br><br>
+    \mainpage WaveformWidget
 
-	It depends on Erik de Castro Lopo's <a href='http://www.mega-nerd.com/libsndfile/'>libsndfile</a> and
- 	the <a href='http://qt.nokia.com/'>Qt framework</a>.  It has been tested on Linux (kernel version 2.6.31-21) under Gnome with 
-	version 4.6 of the Qt framework, but could well function in other environments.
-	<br><br>
-	A source archive can be found <a href='http://www.columbia.edu/~naz2106/WaveformWidget.tar.gz'>here</a>.
-	<br><br>For build instructions, see the README.txt file contained in the top level directory of the source archive.  
+    \brief This library provides a Qt widget for visualizing audio waveforms.<br><br>
+
+    It depends on Erik de Castro Lopo's <a href='http://www.mega-nerd.com/libsndfile/'>libsndfile</a> and
+    the <a href='http://qt.nokia.com/'>Qt framework</a>.  It has been tested on Linux (kernel version 2.6.31-21) under Gnome with
+    version 4.6 of the Qt framework, but could well function in other environments.
+    <br><br>
+    A source archive can be found <a href='http://www.columbia.edu/~naz2106/WaveformWidget.tar.gz'>here</a>.
+    <br><br>For build instructions, see the README.txt file contained in the top level directory of the source archive.
 */
 
 /*!
@@ -31,6 +31,7 @@
 */
 WaveformWidget::WaveformWidget()
 {
+    this->srcAudioFile = new AudioUtil();
 }
 
 /*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
@@ -42,7 +43,6 @@ WaveformWidget::~WaveformWidget()
 
 void WaveformWidget::setSource(QString fileName)
 {
-    this->srcAudioFile = new AudioUtil();
     this->audioFilePath = fileName;
     this->currentFileHandlingMode = FULL_CACHE;
     this->resetFile(this->audioFilePath);
@@ -185,23 +185,26 @@ void WaveformWidget::paintEvent( QPaintEvent * event )
     qDebug()<<m;
 #endif
 
-    this->establishDrawingMode();
-
-    if(this->currentDrawingMode == OVERVIEW)
+    if (srcAudioFile->getSndFIleNotEmpty())
     {
-        this->overviewDraw(event);
-    }
-    else if(this->currentDrawingMode == MACRO)
-    {
-        this->macroDraw(event);
-    }
+        this->establishDrawingMode();
 
-#ifdef DEBUG
-    if(currentMode == MACRO)
-        qDebug()<<"mode : MACRO\n";
-    if(currentMode==OVERVIEW)
-       qDebug()<<"mode: OVERVIEW\n";
-#endif
+        if(this->currentDrawingMode == OVERVIEW)
+        {
+            this->overviewDraw(event);
+        }
+        else if(this->currentDrawingMode == MACRO)
+        {
+            this->macroDraw(event);
+        }
+
+    #ifdef DEBUG
+        if(currentMode == MACRO)
+            qDebug()<<"mode : MACRO\n";
+        if(currentMode==OVERVIEW)
+           qDebug()<<"mode: OVERVIEW\n";
+    #endif
+    }
 }
 
 /*
