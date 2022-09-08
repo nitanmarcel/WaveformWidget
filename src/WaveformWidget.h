@@ -19,6 +19,8 @@
 #include <QDebug>
 #include <QPoint>
 #include <QResizeEvent>
+#include <QProcess>
+#include <QFileInfo>
 
 /*!
     \file WaveformWidget.h
@@ -38,11 +40,12 @@ class WaveformWidget : public QWidget
 public:
     WaveformWidget();
     ~WaveformWidget();
-    void setSource(QString fileName);
-    void resetFile(QString fileName);
+    void setSource(QFileInfo *fileName);
+    void resetFile(QFileInfo *fileName);
     enum FileHandlingMode {FULL_CACHE, DISK_MODE};
     void setColor(QColor color);
     void setFileHandlingMode(FileHandlingMode mode);
+    void setFfmpegPath(QString path);
     FileHandlingMode getFileHandlingMode();
 
 protected:
@@ -62,11 +65,19 @@ private:
     QSize lastSize;
     QColor waveformColor;
 
+    QProcess *convert_process;
+
     double scaleFactor;
+
+    QString ffmpeg_path;
+
     void recalculatePeaks();
     void establishDrawingMode();
     void macroDraw(QPaintEvent* event);
     void overviewDraw(QPaintEvent* event);
+
+    void convertNonWavAudio(QFileInfo *fileName);
+    void setSourceFromConvertedWav();
 };
 
 #endif // WAVEFORMWIDGET_H

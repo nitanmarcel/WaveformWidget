@@ -1,5 +1,9 @@
 #include "WaveformWidget.h"
 
+#include <QStandardPaths>
+#include <QDir>
+#include <QDebug>
+
 #define DEFAULT_PADDING 0.3
 #define LINE_WIDTH 1
 #define POINT_SIZE 5
@@ -32,6 +36,8 @@
 WaveformWidget::WaveformWidget()
 {
     this->srcAudioFile = new AudioUtil();
+    this->convert_process = new QProcess;
+    connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConvertedWav);
 }
 
 /*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
@@ -41,15 +47,22 @@ WaveformWidget::~WaveformWidget()
 }
 
 
-void WaveformWidget::setSource(QString fileName)
+void WaveformWidget::setSource(QFileInfo *fileName)
 {
-    this->audioFilePath = fileName;
-    this->currentFileHandlingMode = FULL_CACHE;
-    this->resetFile(this->audioFilePath);
-    this->scaleFactor = -1.0;
-    this->lastSize = this->size();
-    this->padding = DEFAULT_PADDING;
-    this->waveformColor = DEFAULT_COLOR;
+    
+    this->audioFilePath = fileName->canonicalFilePath();
+    if (fileName->completeSuffix() == "wav")
+    {
+        this->currentFileHandlingMode = FULL_CACHE;
+        this->resetFile(fileName);
+        this->scaleFactor = -1.0;
+        this->lastSize = this->size();
+        this->padding = DEFAULT_PADDING;
+        this->waveformColor = DEFAULT_COLOR;
+    }
+    else if (!this->ffmpeg_path.isEmpty()) {
+        this->convertNonWavAudio(fileName);
+    }
 }
 
 /*!
@@ -62,26 +75,43 @@ minutes' duration) as the entirety of the audio file to be visualized
 by the widget must be loaded into memory.
 @param fileName Valid path to a WAV file
 */
-void WaveformWidget::resetFile(QString fileName)
+void WaveformWidget::resetFile(QFileInfo *fileName)
 {
-    this->audioFilePath = fileName;
-    this->srcAudioFile->setFile(audioFilePath);
-
-    switch(this->currentFileHandlingMode)
+    this->audioFilePath = fileName->canonicalFilePath();
+    if (fileName->completeSuffix() == "wav")
     {
-        case FULL_CACHE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
+        this->srcAudioFile->setFile(audioFilePath);
 
-        case DISK_MODE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
+        switch(this->currentFileHandlingMode)
+        {
+            case FULL_CACHE:
+                this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
+
+            case DISK_MODE:
+                this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
+        }
+
+        this->peakVector.clear();
+        this->dataVector.clear();
+        this->currentDrawingMode = NO_MODE;
+        this->establishDrawingMode();
+        this->repaint();
     }
-
-    this->peakVector.clear();
-    this->dataVector.clear();
-    this->currentDrawingMode = NO_MODE;
-    this->establishDrawingMode();
-    this->repaint();
+    else if (!this->ffmpeg_path.isEmpty()) {
+        this->convertNonWavAudio(fileName);
+    }
  }
+
+void WaveformWidget::setSourceFromConvertedWav()
+{
+    if (!this->audioFilePath.isEmpty())
+    {
+        QFileInfo *audioFileInfo = new QFileInfo(audioFilePath);
+        QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + audioFileInfo->completeBaseName() + QString(".wav");
+        QFileInfo *fileInfo = new QFileInfo(newFileName);
+        setSource(fileInfo);
+    }
+}
 
 /*!
   \brief Mutator for the file-handling mode of a given instance of WaveformWidget.
@@ -462,6 +492,29 @@ void WaveformWidget::establishDrawingMode()
 void WaveformWidget::setColor(QColor color)
 {
     this->waveformColor = color;
+}
+
+/**
+ * @brief sets the path to ffmpeg binary to use for processing non wav files
+ * @param path to ffmpeg binary
+ */
+void WaveformWidget::setFfmpegPath(QString path)
+{
+    this->ffmpeg_path = path;
+}
+
+void WaveformWidget::convertNonWavAudio(QFileInfo *fileName)
+{
+    QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
+    convert_process->start(this->ffmpeg_path, QStringList()
+                   << "-y"
+                   << "-i"
+                   << fileName->canonicalFilePath()
+                   << "-acodec"
+                   << "pcm_u8"
+                   << "-ar"
+                   << "22050"
+                   << newFileName);
 }
 
 
