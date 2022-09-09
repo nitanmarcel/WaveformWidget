@@ -89,7 +89,6 @@ void WaveformWidget::mousePressEvent(QMouseEvent *event)
 {
   if ((event->button() == Qt::LeftButton) && is_clickable)
     emit barClicked(mouseEventPosition(event));
-  setValue(event->x());
 
   event->accept();
 }
