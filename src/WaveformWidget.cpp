@@ -2,6 +2,7 @@
 
 #include <QStandardPaths>
 #include <QDir>
+#include <QToolTip>
 #include <QDebug>
 
 #define DEFAULT_PADDING 0.3
@@ -33,8 +34,12 @@
 \brief Constructs an instance of WaveformWidget.
 @param filePath Valid path to a WAV file.
 */
-WaveformWidget::WaveformWidget()
+WaveformWidget::WaveformWidget(QWidget *parent) : QAbstractSlider(parent),
+    is_clickable(false)
 {
+    clearFocus();
+    setFocusPolicy(Qt::NoFocus);
+
     this->srcAudioFile = new AudioUtil();
     this->ffmpegConvertToMono = true;
     this->convert_process = new QProcess;
@@ -62,7 +67,6 @@ void WaveformWidget::setSource(QFileInfo *fileName)
         this->scaleFactor = -1.0;
         this->lastSize = this->size();
         this->padding = DEFAULT_PADDING;
-        this->waveformColor = DEFAULT_COLOR;
     }
 }
 
@@ -78,9 +82,46 @@ void WaveformWidget::setSourceFromConverted()
         this->scaleFactor = -1.0;
         this->lastSize = this->size();
         this->padding = DEFAULT_PADDING;
-        this->waveformColor = DEFAULT_COLOR;
     }
 }
+
+void WaveformWidget::mousePressEvent(QMouseEvent *event)
+{
+  if ((event->button() == Qt::LeftButton) && is_clickable)
+    emit barClicked(mouseEventPosition(event));
+  setValue(event->x());
+
+  event->accept();
+}
+
+
+// Returns the position in milliseconds corresponding to the mouse position on the progress bar where the event occured
+int WaveformWidget::mouseEventPosition(const QMouseEvent *event) const
+{
+  return event->x() * (maximum() / width());
+}
+
+void WaveformWidget::mouseMoveEvent(QMouseEvent *event)
+{
+  event->accept();
+}
+
+void WaveformWidget::setClickable(bool clickable)
+{
+  if (clickable)
+    setCursor(Qt::PointingHandCursor);
+  else {
+    setCursor(Qt::ForbiddenCursor);
+    if (underMouse())
+      QToolTip::hideText();
+  }
+
+  setMouseTracking(clickable);
+
+  is_clickable = clickable;
+}
+
+
 
 /*!
 \brief Reset the audio file to be visualized by this instance of WaveformWidget.
@@ -158,7 +199,6 @@ void WaveformWidget::recalculatePeaks()
     /*calculate frame-grab increments*/
     int totalFrames = srcAudioFile->getTotalFrames();
     int frameIncrement = totalFrames/this->width();
-
 
     if(this->currentDrawingMode != MACRO)
     {
@@ -257,8 +297,8 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
 
     QPainter linePainter(this);
     QPainter pointPainter(this);
-    linePainter.setPen(QPen(this->waveformColor, LINE_WIDTH, Qt::SolidLine, Qt::RoundCap));
-    pointPainter.setPen(QPen(this->waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
+    linePainter.setPen(QPen(this->m_waveformColor, LINE_WIDTH, Qt::SolidLine, Qt::RoundCap));
+    pointPainter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
 
     double optimalPosition = (double) minX;
     double prevOptimalPosition = optimalPosition;
@@ -273,7 +313,7 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
         double optimalSpacing = ((double)this->width())/(((double)this->dataVector.size())/2);
         if(optimalSpacing > INDIVIDUAL_SAMPLE_DRAW_TOGGLE_POINT)
         {
-            pointPainter.setPen(QPen(this->waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
+            pointPainter.setPen(QPen(this->m_waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
             drawIndividualSamples = true;
         }
         int startIndex = 2*startFrame;
@@ -337,7 +377,7 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
         double optimalSpacing = ((double)this->width())/(((double)this->dataVector.size()));
         if(optimalSpacing > INDIVIDUAL_SAMPLE_DRAW_TOGGLE_POINT)
         {
-            pointPainter.setPen(QPen(this->waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
+            pointPainter.setPen(QPen(this->m_waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
             drawIndividualSamples = true;
         }
         int startIndex = startFrame;
@@ -389,7 +429,6 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
 void WaveformWidget::overviewDraw(QPaintEvent *event)
 {
     QPainter painter(this);
-    painter.setPen(QPen(this->waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
 
     int minX = event->region().boundingRect().x();
     int maxX = event->region().boundingRect().x() + event->region().boundingRect().width();
@@ -407,6 +446,10 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
 
             for(int i = startIndex;  i < endIndex; i+=2)
             {
+                if (counter < (qreal)value() / maximum() * width())
+                    painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
+                else
+                    painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
 
                 int chan1YMidpoint = yMidpoint - this->height()/4;
                 int chan2YMidpoint = yMidpoint + this->height()/4;
@@ -431,6 +474,10 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
 
            for(unsigned int i = 0; i < peakVector.size(); i++)
            {
+               if (curIndex < (qreal)value() / maximum() * width())
+                   painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
+               else
+                   painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
                painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor)   );
                painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor)   );
 
@@ -491,7 +538,7 @@ void WaveformWidget::establishDrawingMode()
 */
 void WaveformWidget::setColor(QColor color)
 {
-    this->waveformColor = color;
+    this->m_waveformColor = color;
 }
 
 void WaveformWidget::setFfmpegConvertToMono(bool convert)
