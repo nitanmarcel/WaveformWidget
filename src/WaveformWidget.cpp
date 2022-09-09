@@ -512,7 +512,6 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
 {
     QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
     QStringList params;
-    qDebug() << "CONVERTING";
     if (this->ffmpegConvertToMono)
         params << "-y"
                << "-i"
