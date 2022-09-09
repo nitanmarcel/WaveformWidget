@@ -36,9 +36,9 @@
 WaveformWidget::WaveformWidget()
 {
     this->srcAudioFile = new AudioUtil();
-    this->paintAllChannels = true;
+    this->ffmpegConvertToMono = true;
     this->convert_process = new QProcess;
-    connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConvertedWav);
+    connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConverted);
 }
 
 /*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
@@ -50,9 +50,12 @@ WaveformWidget::~WaveformWidget()
 
 void WaveformWidget::setSource(QFileInfo *fileName)
 {
-    
-    this->audioFilePath = fileName->canonicalFilePath();
-    if (fileName->completeSuffix() == "wav")
+
+    if ((fileName->completeSuffix() != "wav" && !this->ffmpeg_path.isEmpty()) || (this->ffmpegConvertToMono && !this->ffmpeg_path.isEmpty()))
+    {
+        this->convertAudio(fileName);
+    }
+    else
     {
         this->currentFileHandlingMode = FULL_CACHE;
         this->resetFile(fileName);
@@ -61,8 +64,21 @@ void WaveformWidget::setSource(QFileInfo *fileName)
         this->padding = DEFAULT_PADDING;
         this->waveformColor = DEFAULT_COLOR;
     }
-    else if (!this->ffmpeg_path.isEmpty()) {
-        this->convertNonWavAudio(fileName);
+}
+
+void WaveformWidget::setSourceFromConverted()
+{
+    if (!this->audioFilePath.isEmpty())
+    {
+        QFileInfo *audioFileInfo = new QFileInfo(audioFilePath);
+        QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + audioFileInfo->completeBaseName() + QString(".wav");
+        QFileInfo *fileInfo = new QFileInfo(newFileName);
+        this->currentFileHandlingMode = FULL_CACHE;
+        this->resetFile(fileInfo);
+        this->scaleFactor = -1.0;
+        this->lastSize = this->size();
+        this->padding = DEFAULT_PADDING;
+        this->waveformColor = DEFAULT_COLOR;
     }
 }
 
@@ -79,40 +95,23 @@ by the widget must be loaded into memory.
 void WaveformWidget::resetFile(QFileInfo *fileName)
 {
     this->audioFilePath = fileName->canonicalFilePath();
-    if (fileName->completeSuffix() == "wav")
+    this->srcAudioFile->setFile(audioFilePath);
+
+    switch(this->currentFileHandlingMode)
     {
-        this->srcAudioFile->setFile(audioFilePath);
+        case FULL_CACHE:
+            this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
 
-        switch(this->currentFileHandlingMode)
-        {
-            case FULL_CACHE:
-                this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
-
-            case DISK_MODE:
-                this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
-        }
-
-        this->peakVector.clear();
-        this->dataVector.clear();
-        this->currentDrawingMode = NO_MODE;
-        this->establishDrawingMode();
-        this->repaint();
+        case DISK_MODE:
+            this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
     }
-    else if (!this->ffmpeg_path.isEmpty()) {
-        this->convertNonWavAudio(fileName);
-    }
+
+    this->peakVector.clear();
+    this->dataVector.clear();
+    this->currentDrawingMode = NO_MODE;
+    this->establishDrawingMode();
+    this->repaint();
  }
-
-void WaveformWidget::setSourceFromConvertedWav()
-{
-    if (!this->audioFilePath.isEmpty())
-    {
-        QFileInfo *audioFileInfo = new QFileInfo(audioFilePath);
-        QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + audioFileInfo->completeBaseName() + QString(".wav");
-        QFileInfo *fileInfo = new QFileInfo(newFileName);
-        setSource(fileInfo);
-    }
-}
 
 /*!
   \brief Mutator for the file-handling mode of a given instance of WaveformWidget.
@@ -303,40 +302,22 @@ void WaveformWidget::macroDraw(QPaintEvent *event)
             double lChannelVal = this->dataVector.at(i);
             double rChannelVal = this->dataVector.at(i+1);
 
-            if (this->paintAllChannels)
+            /*
+                If our zoom-level is such that it would be useful to see blocks
+                representing individual samples, draw such blocks:
+            */
+            if(drawIndividualSamples == true)
             {
-                /*
-                    If our zoom-level is such that it would be useful to see blocks
-                    representing individual samples, draw such blocks:
-                */
-                if(drawIndividualSamples == true)
-                {
-                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
-                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor)));
-                }
-
-                /*
-                    Draw lines from previous samples to current samples:
-                */
-                linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan1YMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
-                linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan2YMidpoint+((this->height()/4)*prevRChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor));
+                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
+                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor)));
             }
-            else
-            {
-                /*
-                    If our zoom-level is such that it would be useful to see blocks
-                    representing individual samples, draw such blocks:
-                */
-                if(drawIndividualSamples == true)
-                {
-                    pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), yMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
-                }
 
-                /*
-                    Draw lines from previous samples to current samples:
-                */
-                linePainter.drawLine(MathUtil::round(prevOptimalPosition), yMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), yMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
-            }
+            /*
+                Draw lines from previous samples to current samples:
+            */
+            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan1YMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
+            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan2YMidpoint+((this->height()/4)*prevRChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor));
+
 
             prevLChannelVal = lChannelVal;
             prevRChannelVal = rChannelVal;
@@ -426,31 +407,23 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
 
             for(int i = startIndex;  i < endIndex; i+=2)
             {
-                if (this->paintAllChannels)
 
-                {
-                    int chan1YMidpoint = yMidpoint - this->height()/4;
-                    int chan2YMidpoint = yMidpoint + this->height()/4;
+                int chan1YMidpoint = yMidpoint - this->height()/4;
+                int chan2YMidpoint = yMidpoint + this->height()/4;
 
 
-                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
-                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
 
-                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
-                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
-                }
-                else
-                {
-                    painter.drawLine(counter, yMidpoint, counter, yMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
-                    painter.drawLine(counter, yMidpoint, counter, yMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
-                }
+                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
+                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
 
                 counter++;
             }
 
     }
 
-    else if(srcAudioFile->getNumChannels() == 1)
+    if(srcAudioFile->getNumChannels() == 1)
     {
            int curIndex = minX;
            int yMidpoint = this->height()/2;
@@ -521,9 +494,9 @@ void WaveformWidget::setColor(QColor color)
     this->waveformColor = color;
 }
 
-void WaveformWidget::setPaintAllChannels(bool state)
+void WaveformWidget::setFfmpegConvertToMono(bool convert)
 {
-    this->paintAllChannels = state;
+    this->ffmpegConvertToMono = convert;
 }
 
 /**
@@ -535,18 +508,28 @@ void WaveformWidget::setFfmpegPath(QString path)
     this->ffmpeg_path = path;
 }
 
-void WaveformWidget::convertNonWavAudio(QFileInfo *fileName)
+void WaveformWidget::convertAudio(QFileInfo *fileName)
 {
     QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
-    convert_process->start(this->ffmpeg_path, QStringList()
-                   << "-y"
-                   << "-i"
-                   << fileName->canonicalFilePath()
-                   << "-acodec"
-                   << "pcm_u8"
-                   << "-ar"
-                   << "22050"
-                   << newFileName);
+    QStringList params;
+    if (this->ffmpegConvertToMono)
+        params << "-y"
+               << "-i"
+               << fileName->canonicalFilePath()
+               << "-ac"
+               << "1"
+               << "-acodec"
+               << "pcm_u8"
+               << newFileName;
+    else
+        params << "-y"
+               << "-i"
+               << "-acodec"
+               << "pcm_u8"
+               << fileName->canonicalFilePath()
+               << newFileName;
+
+    convert_process->start(this->ffmpeg_path, params);
 }
 
 

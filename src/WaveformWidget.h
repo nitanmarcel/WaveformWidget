@@ -41,7 +41,7 @@ public:
     WaveformWidget();
     ~WaveformWidget();
     void setSource(QFileInfo *fileName);
-    void setPaintAllChannels(bool state);
+    void setFfmpegConvertToMono(bool convert);
     void resetFile(QFileInfo *fileName);
     enum FileHandlingMode {FULL_CACHE, DISK_MODE};
     void setColor(QColor color);
@@ -63,7 +63,7 @@ private:
     QString audioFilePath;
     double max_peak;
     double padding;
-    bool paintAllChannels;
+    bool ffmpegConvertToMono;
     QSize lastSize;
     QColor waveformColor;
 
@@ -78,8 +78,8 @@ private:
     void macroDraw(QPaintEvent* event);
     void overviewDraw(QPaintEvent* event);
 
-    void convertNonWavAudio(QFileInfo *fileName);
-    void setSourceFromConvertedWav();
+    void convertAudio(QFileInfo *fileName);
+    void setSourceFromConverted();
 };
 
 #endif // WAVEFORMWIDGET_H
