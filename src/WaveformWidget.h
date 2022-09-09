@@ -63,8 +63,6 @@ protected:
 
 private:
     AudioUtil *srcAudioFile;
-    enum DrawingMode {OVERVIEW, MACRO, NO_MODE};
-    DrawingMode currentDrawingMode;
     FileHandlingMode currentFileHandlingMode;
     vector<double> peakVector;
     vector<double> dataVector;
@@ -83,8 +81,6 @@ private:
     QString ffmpeg_path;
 
     void recalculatePeaks();
-    void establishDrawingMode();
-    void macroDraw(QPaintEvent* event);
     void overviewDraw(QPaintEvent* event);
 
     void convertAudio(QFileInfo *fileName);

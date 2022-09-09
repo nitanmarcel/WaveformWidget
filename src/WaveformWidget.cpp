@@ -10,7 +10,6 @@
 #define POINT_SIZE 5
 #define DEFAULT_COLOR Qt::blue
 #define INDIVIDUAL_SAMPLE_DRAW_TOGGLE_POINT 9.0
-#define MACRO_MODE_TOGGLE_CONSTANT 100.0
 
 /*!
 \file WaveformWidget.cpp
@@ -148,8 +147,6 @@ void WaveformWidget::resetFile(QFileInfo *fileName)
 
     this->peakVector.clear();
     this->dataVector.clear();
-    this->currentDrawingMode = NO_MODE;
-    this->establishDrawingMode();
     this->repaint();
  }
 
@@ -198,9 +195,6 @@ void WaveformWidget::recalculatePeaks()
     /*calculate frame-grab increments*/
     int totalFrames = srcAudioFile->getTotalFrames();
     int frameIncrement = totalFrames/this->width();
-
-    if(this->currentDrawingMode != MACRO)
-    {
         if(srcAudioFile->getNumChannels() == 2)
         {
             this->peakVector.clear();
@@ -242,7 +236,6 @@ void WaveformWidget::recalculatePeaks()
                 this->peakVector.push_back(frameAbs);
             }
         }
-    }
 }
 
 void WaveformWidget::paintEvent( QPaintEvent * event )
@@ -256,167 +249,10 @@ void WaveformWidget::paintEvent( QPaintEvent * event )
 
     if (srcAudioFile->getSndFIleNotEmpty())
     {
-        this->establishDrawingMode();
-
-        if(this->currentDrawingMode == OVERVIEW)
-        {
-            this->overviewDraw(event);
-        }
-        else if(this->currentDrawingMode == MACRO)
-        {
-            this->macroDraw(event);
-        }
-
-    #ifdef DEBUG
-        if(currentMode == MACRO)
-            qDebug()<<"mode : MACRO\n";
-        if(currentMode==OVERVIEW)
-           qDebug()<<"mode: OVERVIEW\n";
-    #endif
+        this->recalculatePeaks();
+        this->overviewDraw(event);
+        this->lastSize = this->size();
     }
-}
-
-/*
-the macroDraw drawing function takes into account every single sample in the region of
-the source audio file to be drawn in the body of the widget.  It maintains an optimal position
-for every sample, and rounds this to the nearest integer (because there are no pixels with
-non-integer indices) for drawing.
-*/
-void WaveformWidget::macroDraw(QPaintEvent *event)
-{
-    int yMidpoint = this->height()/2;
-
-    int minX = event->region().boundingRect().x();
-    int maxX = event->region().boundingRect().x() + event->region().boundingRect().width();
-
-    int startFrame = (int) ((double)this->srcAudioFile->getTotalFrames())*(((double)minX)/((double)this->width()));
-    int endFrame = (int) ((double)this->srcAudioFile->getTotalFrames())*(((double)maxX)/((double)this->width()));
-
-    bool drawIndividualSamples = false;
-
-    QPainter linePainter(this);
-    QPainter pointPainter(this);
-    linePainter.setPen(QPen(this->m_waveformColor, LINE_WIDTH, Qt::SolidLine, Qt::RoundCap));
-    pointPainter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
-
-    double optimalPosition = (double) minX;
-    double prevOptimalPosition = optimalPosition;
-
-    /* Double-channel macro drawing routine:*/
-
-    if(this->srcAudioFile->getNumChannels()==2)
-    {
-        int chan1YMidpoint = yMidpoint - this->height()/4;
-        int chan2YMidpoint = yMidpoint + this->height()/4;
-
-        double optimalSpacing = ((double)this->width())/(((double)this->dataVector.size())/2);
-        if(optimalSpacing > INDIVIDUAL_SAMPLE_DRAW_TOGGLE_POINT)
-        {
-            pointPainter.setPen(QPen(this->m_waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
-            drawIndividualSamples = true;
-        }
-        int startIndex = 2*startFrame;
-        int endIndex;
-
-        /*Reading the values in the dataVector four additional indices deep will
-          allow us to graph a few more points just out of frame so that
-          the line will surpass the right edge of the viewable area, rather
-          than stops short of it.  The same thing is done in the macroDraw routine for
-          single-channel audio further down as well*/
-        if(endFrame < this->srcAudioFile->getTotalFrames()-4)
-        {
-            endIndex = 2*endFrame + 4;
-        }
-        else{
-            endIndex = 2*endFrame;
-        }
-        double prevLChannelVal = this->dataVector.at(startIndex);
-        double prevRChannelVal = this->dataVector.at(startIndex+1);
-
-/*
-    Meat of the drawing routine:
-*/
-        for(int i = startIndex + 2; i < endIndex; i+=2)
-        {
-            double lChannelVal = this->dataVector.at(i);
-            double rChannelVal = this->dataVector.at(i+1);
-
-            /*
-                If our zoom-level is such that it would be useful to see blocks
-                representing individual samples, draw such blocks:
-            */
-            if(drawIndividualSamples == true)
-            {
-                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor)));
-                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor)));
-            }
-
-            /*
-                Draw lines from previous samples to current samples:
-            */
-            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan1YMidpoint+((this->height()/4)*prevLChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan1YMidpoint+((this->height()/4)*lChannelVal*scaleFactor));
-            linePainter.drawLine(MathUtil::round(prevOptimalPosition), chan2YMidpoint+((this->height()/4)*prevRChannelVal*scaleFactor), MathUtil::round(optimalPosition), chan2YMidpoint+((this->height()/4)*rChannelVal*scaleFactor));
-
-
-            prevLChannelVal = lChannelVal;
-            prevRChannelVal = rChannelVal;
-
-            prevOptimalPosition = optimalPosition;
-            optimalPosition += optimalSpacing;
-        }
-
-#ifdef DEBUG
-        qDebug()<<"width: "<<this->width()<<" \nv size: "<<this->dataVector.size()<<"\noptimal spacing "<<optimalSpacing;
-        qDebug()<<"audio file size: "<<this->srcAudioFile->getTotalFrames();
-#endif
-    }
-    /*Single-channel macro drawing routine: */
-    else if(this->srcAudioFile->getNumChannels() == 1)
-    {
-        double optimalSpacing = ((double)this->width())/(((double)this->dataVector.size()));
-        if(optimalSpacing > INDIVIDUAL_SAMPLE_DRAW_TOGGLE_POINT)
-        {
-            pointPainter.setPen(QPen(this->m_waveformColor, POINT_SIZE, Qt::SolidLine, Qt::SquareCap));
-            drawIndividualSamples = true;
-        }
-        int startIndex = startFrame;
-        int endIndex;
-        if(endFrame < this->srcAudioFile->getTotalFrames()-2)
-        {
-            endIndex = endFrame+2;
-        }
-        else{
-           endIndex = endFrame;
-        }
-
-        double prevAudioDataVal = this->dataVector.at(startIndex);
-
-/*
-      Meat of the drawing routine:
-*/
-        for(int i = startIndex; i < endIndex; i++)
-        {
-            double audioDataVal = this->dataVector.at(i);
-
-            /*
-                If our zoom-level is such that it would be useful to see blocks
-                representing individual samples, draw such blocks:
-            */
-            if(drawIndividualSamples == true){
-                pointPainter.drawPoint(QPoint(MathUtil::round(optimalPosition), yMidpoint+((this->height()/2)*audioDataVal*scaleFactor)));
-            }
-            /*
-                Draw a line from the previous sample to the current sample:
-            */
-            linePainter.drawLine(MathUtil::round(prevOptimalPosition), yMidpoint+((this->height()/2)*prevAudioDataVal*scaleFactor), MathUtil::round(optimalPosition), yMidpoint+((this->height()/2)*audioDataVal*scaleFactor));
-
-            prevAudioDataVal = audioDataVal;
-
-            prevOptimalPosition = optimalPosition;
-            optimalPosition += optimalSpacing;
-        }
-    }
-
 }
 
 /*
@@ -482,53 +318,9 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
 
                curIndex++;
            }
-
     }
 
 }
-
-/*
-This function determines which drawing mode the current instance of WaveformWidget
-should be operating in based on its dimensions and the size of the audio file that it
-visualizes.
-*/
-void WaveformWidget::establishDrawingMode()
-{
-    int audioFileSize = this->srcAudioFile->getTotalFrames();
-
-    if(this->currentDrawingMode == NO_MODE)
-    {
-        if(this->width() < audioFileSize/MACRO_MODE_TOGGLE_CONSTANT)
-        {
-            this->currentDrawingMode = OVERVIEW;
-            this->recalculatePeaks();
-        }else
-        {
-            this->currentDrawingMode = MACRO;
-            this->dataVector = this->srcAudioFile->getAllFrames();
-        }
-    }
-
-    if(this->currentDrawingMode != MACRO && this->width() >= audioFileSize/MACRO_MODE_TOGGLE_CONSTANT)
-    {
-        this->currentDrawingMode = MACRO;
-        this->dataVector = this->srcAudioFile->getAllFrames();
-    }
-
-    if(this->currentDrawingMode == MACRO && this->width() < audioFileSize/MACRO_MODE_TOGGLE_CONSTANT)
-    {
-        this->currentDrawingMode = OVERVIEW;
-    }
-
-    if(this->size()!=this->lastSize && this->currentDrawingMode != MACRO)
-    {
-        this->recalculatePeaks();
-    }
-
-    this->lastSize = this->size();
-
-}
-
 
 /*!
     \brief Mutator for waveform color.
