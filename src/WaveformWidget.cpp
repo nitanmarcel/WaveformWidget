@@ -50,7 +50,7 @@ WaveformWidget::~WaveformWidget()
 
 void WaveformWidget::setSource(QFileInfo *fileName)
 {
-
+    this->audioFilePath = fileName->canonicalFilePath();
     if ((fileName->completeSuffix() != "wav" && !this->ffmpeg_path.isEmpty()) || (this->ffmpegConvertToMono && !this->ffmpeg_path.isEmpty()))
     {
         this->convertAudio(fileName);
@@ -512,6 +512,7 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
 {
     QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
     QStringList params;
+    qDebug() << "CONVERTING";
     if (this->ffmpegConvertToMono)
         params << "-y"
                << "-i"
@@ -524,9 +525,9 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
     else
         params << "-y"
                << "-i"
+               << fileName->canonicalFilePath()
                << "-acodec"
                << "pcm_u8"
-               << fileName->canonicalFilePath()
                << newFileName;
 
     convert_process->start(this->ffmpeg_path, params);
