@@ -34,68 +34,67 @@
 @param filePath Valid path to a WAV file.
 */
 WaveformWidget::WaveformWidget(QWidget *parent) : QAbstractSlider(parent),
-    is_clickable(false)
+    m_is_clickable(false)
 {
     clearFocus();
     setFocusPolicy(Qt::NoFocus);
 
-    this->srcAudioFile = new AudioUtil();
-    this->ffmpegConvertToMono = true;
-    this->convert_process = new QProcess;
-    this->first_draw = true;
-    this->pixMapLabel = new QLabel(this);
-    this->pixMapLabel->show();
-    this->shouldRecalculatePeaks = true;
-    connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConverted);
+    this->m_srcAudioFile = new AudioUtil();
+    this->m_ffmpegConvertToMono = true;
+    this->m_convert_process = new QProcess;
+    this->m_pixMapLabel = new QLabel(this);
+    this->m_pixMapLabel->show();
+    this->m_shouldRecalculatePeaks = true;
+    connect(m_convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConverted);
 
-    this->paintTimer = new QTimer(this);
-    connect(this->paintTimer, &QTimer::timeout, this, &WaveformWidget::overviewDraw);
-    paintTimer->setInterval(100);
-    paintTimer->start();
+    this->m_paintTimer = new QTimer(this);
+    connect(this->m_paintTimer, &QTimer::timeout, this, &WaveformWidget::overviewDraw);
+    m_paintTimer->setInterval(100);
+    m_paintTimer->start();
 }
 
-/*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
+/*The AudioUtil instance "m_srcAudioFile" is our only dynamically allocated object*/
 WaveformWidget::~WaveformWidget()
 {
-    delete this->srcAudioFile;
+    delete this->m_srcAudioFile;
 }
 
 
 void WaveformWidget::setSource(QFileInfo *fileName)
 {
-    this->audioFilePath = fileName->canonicalFilePath();
-    if ((fileName->completeSuffix() != "wav" && !this->ffmpeg_path.isEmpty()) || (this->ffmpegConvertToMono && !this->ffmpeg_path.isEmpty()))
+    this->m_audioFilePath = fileName->canonicalFilePath();
+    if ((fileName->completeSuffix() != "wav" && !this->m_ffmpeg_path.isEmpty()) || (this->m_ffmpegConvertToMono && !this->m_ffmpeg_path.isEmpty()))
     {
         this->convertAudio(fileName);
     }
     else
     {
-        this->currentFileHandlingMode = FULL_CACHE;
+        this->m_currentFileHandlingMode = FULL_CACHE;
         this->resetFile(fileName);
-        this->scaleFactor = -1.0;
-        this->lastSize = this->size();
-        this->padding = DEFAULT_PADDING;
+        this->m_scaleFactor = -1.0;
+        this->m_lastSize = this->size();
+        this->m_padding = DEFAULT_PADDING;
     }
 }
 
 void WaveformWidget::setSourceFromConverted()
 {
-    if (!this->audioFilePath.isEmpty())
+    if (!this->m_audioFilePath.isEmpty())
     {
-        QFileInfo *audioFileInfo = new QFileInfo(audioFilePath);
+        QFileInfo *audioFileInfo = new QFileInfo(m_audioFilePath);
         QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + audioFileInfo->completeBaseName() + QString(".wav");
         QFileInfo *fileInfo = new QFileInfo(newFileName);
-        this->currentFileHandlingMode = FULL_CACHE;
+        this->m_currentFileHandlingMode = FULL_CACHE;
         this->resetFile(fileInfo);
-        this->scaleFactor = -1.0;
-        this->lastSize = this->size();
-        this->padding = DEFAULT_PADDING;
+        this->m_scaleFactor = -1.0;
+        this->m_lastSize = this->size();
+        this->m_padding = DEFAULT_PADDING;
     }
 }
 
 void WaveformWidget::mousePressEvent(QMouseEvent *event)
 {
-  if ((event->button() == Qt::LeftButton) && is_clickable)
+  if ((event->button() == Qt::LeftButton) && m_is_clickable)
     emit barClicked(mouseEventPosition(event));
 
   event->accept();
@@ -125,7 +124,7 @@ void WaveformWidget::setClickable(bool clickable)
 
   setMouseTracking(clickable);
 
-  is_clickable = clickable;
+  m_is_clickable = clickable;
 }
 
 
@@ -142,21 +141,21 @@ by the widget must be loaded into memory.
 */
 void WaveformWidget::resetFile(QFileInfo *fileName)
 {
-    this->audioFilePath = fileName->canonicalFilePath();
-    this->srcAudioFile->setFile(audioFilePath);
+    this->m_audioFilePath = fileName->canonicalFilePath();
+    this->m_srcAudioFile->setFile(m_audioFilePath);
 
-    switch(this->currentFileHandlingMode)
+    switch(this->m_currentFileHandlingMode)
     {
         case FULL_CACHE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
+            this->m_srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
 
         case DISK_MODE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
+            this->m_srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
     }
 
-    this->peakVector.clear();
-    this->dataVector.clear();
-    this->shouldRecalculatePeaks = true;
+    this->m_peakVector.clear();
+    this->m_dataVector.clear();
+    this->m_shouldRecalculatePeaks = true;
     this->repaint();
  }
 
@@ -172,15 +171,15 @@ AudioUtil::setFileHandlingMode(FileHandlingMode mode).
 */
 void WaveformWidget::setFileHandlingMode(FileHandlingMode mode)
 {
-    this->currentFileHandlingMode = mode;
+    this->m_currentFileHandlingMode = mode;
 
-    switch (this->currentFileHandlingMode)
+    switch (this->m_currentFileHandlingMode)
     {
         case FULL_CACHE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
+            this->m_srcAudioFile->setFileHandlingMode(AudioUtil::FULL_CACHE);
 
         case DISK_MODE:
-            this->srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
+            this->m_srcAudioFile->setFileHandlingMode(AudioUtil::DISK_MODE);
     }
 }
 
@@ -191,89 +190,89 @@ void WaveformWidget::setFileHandlingMode(FileHandlingMode mode)
 */
 WaveformWidget::FileHandlingMode WaveformWidget::getFileHandlingMode()
 {
-    return this->currentFileHandlingMode;
+    return this->m_currentFileHandlingMode;
 }
 
 void WaveformWidget::recalculatePeaks()
 {
     /*calculate scale factor*/
-    vector<double> normPeak = srcAudioFile->calculateNormalizedPeaks();
+    vector<double> normPeak = m_srcAudioFile->calculateNormalizedPeaks();
     double peak = MathUtil::getVMax(normPeak);
-    this->scaleFactor = 1.0/peak;
-    this->scaleFactor = scaleFactor - scaleFactor * this->padding;
+    this->m_scaleFactor = 1.0/peak;
+    this->m_scaleFactor = m_scaleFactor - m_scaleFactor * this->m_padding;
 
     /*calculate frame-grab increments*/
-    int totalFrames = srcAudioFile->getTotalFrames();
+    int totalFrames = m_srcAudioFile->getTotalFrames();
     int frameIncrement = totalFrames/this->width();
-        if(srcAudioFile->getNumChannels() == 2)
+        if(m_srcAudioFile->getNumChannels() == 2)
         {
-            this->peakVector.clear();
+            this->m_peakVector.clear();
 
             vector<double> regionMax;
 
             /*
-              Populate the peakVector with peak values for each region of the source audio
+              Populate the m_peakVector.at with peak values for each region of the source audio
               file to be represented by a single pixel of the widget.
             */
 
             for(int i = 0; i < totalFrames; i += frameIncrement)
             {
-                regionMax = srcAudioFile->peakForRegion(i, i+frameIncrement);
+                regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
                 double frameAbsL = fabs(regionMax[0]);
                 double frameAbsR = fabs(regionMax[1]);
 
-                this->peakVector.push_back(frameAbsL);
-                this->peakVector.push_back(frameAbsR);
+                this->m_peakVector.push_back(frameAbsL);
+                this->m_peakVector.push_back(frameAbsR);
             }
         }
 
-        if(this->srcAudioFile->getNumChannels() == 1)
+        if(this->m_srcAudioFile->getNumChannels() == 1)
         {
 
-            this->peakVector.clear();
+            this->m_peakVector.clear();
             vector<double> regionMax;
 
             /*
-              Populate the peakVector with peak values for each region of the source audio
+              Populate the m_peakVector.at with peak values for each region of the source audio
               file to be represented by a single pixel of the widget.
             */
 
             for(int i = 0; i < totalFrames; i += frameIncrement)
             {
-                regionMax = srcAudioFile->peakForRegion(i, i+frameIncrement);
+                regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
                 double frameAbs = fabs(regionMax[0]);
 
-                this->peakVector.push_back(frameAbs);
+                this->m_peakVector.push_back(frameAbs);
             }
         }
-        this->shouldRecalculatePeaks = false;
+        this->m_shouldRecalculatePeaks = false;
 }
 
 /*
-    The overview drawing function works with the peakVector, which contains the peak value
+    The overview drawing function works with the m_peakVector.at, which contains the peak value
     for every region (and each channel) of the source audio file to be represented by a single
     pixel of the widget.  The function steps through this vector and draws two vertical bars
     for each such value -- one above the Y-axis midpoint for the channel, and one below.
 */
 void WaveformWidget::overviewDraw()
 {
-    if (!this->srcAudioFile->getSndFIleNotEmpty())
+    if (!this->m_srcAudioFile->getSndFIleNotEmpty())
         return;
-     if ((qreal)value() / maximum() * width() == lastDrawnValue)
+     if ((qreal)value() / maximum() * width() == m_lastDrawnValue)
          return;
-     if (this->shouldRecalculatePeaks)
+     if (this->m_shouldRecalculatePeaks)
          this->recalculatePeaks();
 
-    pixMap = QPixmap(size());
-    pixMap.fill(Qt::transparent);
-    QPainter painter(&pixMap);
+    m_pixMap = QPixmap(size());
+    m_pixMap.fill(this->m_backgroundColor);
+    QPainter painter(&m_pixMap);
 
-    int minX = this->pixMap.rect().x(); //lastPaintEvent->region().boundingRect().x();
-    int maxX = this->pixMap.rect().x() + this->pixMap.rect().width();
+    int minX = this->m_pixMap.rect().x();
+    int maxX = this->m_pixMap.rect().x() + this->m_pixMap.rect().width();
 
     /*grab peak values for each region to be represented by a pixel in the visible
     portion of the widget, scale them, and draw: */
-    if(this->srcAudioFile->getNumChannels() == 2)
+    if(this->m_srcAudioFile->getNumChannels() == 2)
     {
 
             int startIndex = 2*minX;
@@ -293,40 +292,40 @@ void WaveformWidget::overviewDraw()
                 int chan2YMidpoint = yMidpoint + this->height()/4;
 
 
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor));
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor));
+                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
+                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
 
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->peakVector.at(i+1)*scaleFactor)   );
+                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
+                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
 
                 counter++;
             }
 
     }
 
-    if(srcAudioFile->getNumChannels() == 1)
+    if(m_srcAudioFile->getNumChannels() == 1)
     {
            int curIndex = minX;
            int yMidpoint = this->height()/2;
 
 
-           for(unsigned int i = 0; i < peakVector.size(); i++)
+           for(unsigned int i = 0; i < m_peakVector.size(); i++)
            {
                if (curIndex < (qreal)value() / maximum() * width())
                    painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
                else
                    painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
-               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+((this->height()/4)*this->peakVector.at(i)*scaleFactor)   );
-               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint -((this->height()/4)*this->peakVector.at(i)*scaleFactor)   );
+               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
+               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
 
                curIndex++;
            }
     }
 
-    this->pixMapLabel->setPixmap(pixMap);
-    this->pixMapLabel->resize(size());
-    lastDrawnValue = (qreal)value() / maximum() * width();
-    this->lastSize = this->size();
+    this->m_pixMapLabel->setPixmap(m_pixMap);
+    this->m_pixMapLabel->resize(size());
+    m_lastDrawnValue = (qreal)value() / maximum() * width();
+    this->m_lastSize = this->size();
 }
 
 /*!
@@ -341,7 +340,7 @@ void WaveformWidget::setColor(QColor color)
 
 void WaveformWidget::setFfmpegConvertToMono(bool convert)
 {
-    this->ffmpegConvertToMono = convert;
+    this->m_ffmpegConvertToMono = convert;
 }
 
 /**
@@ -350,14 +349,14 @@ void WaveformWidget::setFfmpegConvertToMono(bool convert)
  */
 void WaveformWidget::setFfmpegPath(QString path)
 {
-    this->ffmpeg_path = path;
+    this->m_ffmpeg_path = path;
 }
 
 void WaveformWidget::convertAudio(QFileInfo *fileName)
 {
     QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
     QStringList params;
-    if (this->ffmpegConvertToMono)
+    if (this->m_ffmpegConvertToMono)
         params << "-y"
                << "-i"
                << fileName->canonicalFilePath()
@@ -374,7 +373,7 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
                << "pcm_u8"
                << newFileName;
 
-    convert_process->start(this->ffmpeg_path, params);
+    m_convert_process->start(this->m_ffmpeg_path, params);
 }
 
 

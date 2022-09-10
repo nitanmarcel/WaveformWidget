@@ -43,6 +43,7 @@ class WaveformWidget : public QAbstractSlider
 {
     Q_PROPERTY( QColor waveformColor MEMBER m_waveformColor );
     Q_PROPERTY( QColor waveformProgressColor MEMBER m_progressColor );
+    Q_PROPERTY( QColor backgroundColor MEMBER m_backgroundColor );
     Q_OBJECT
 public:
     WaveformWidget(QWidget *parent = nullptr);
@@ -64,39 +65,32 @@ protected:
 
 
 private:
-    AudioUtil *srcAudioFile;
-    FileHandlingMode currentFileHandlingMode;
-    vector<double> peakVector;
-    vector<double> dataVector;
-    QString audioFilePath;
-    double max_peak;
-    double padding;
-    bool ffmpegConvertToMono;
-    QSize lastSize;
+    AudioUtil *m_srcAudioFile;
+    FileHandlingMode m_currentFileHandlingMode;
+    vector<double> m_peakVector;
+    vector<double> m_dataVector;
+    QString m_audioFilePath;
+    double m_padding;
+    bool m_ffmpegConvertToMono;
+    QSize m_lastSize;
     QColor m_waveformColor { Qt::blue };
     QColor m_progressColor { QColor(246, 134, 86) };
-
-    QProcess *convert_process;
-
-    double scaleFactor;
-
-    QString ffmpeg_path;
+    QColor m_backgroundColor { Qt::transparent };
+    QProcess *m_convert_process;
+    double m_scaleFactor;
+    QString m_ffmpeg_path;
+    QPixmap m_pixMap;
+    QLabel *m_pixMapLabel;
+    bool m_is_clickable;
+    qreal m_lastDrawnValue;
+    QTimer *m_paintTimer;
+    bool m_shouldRecalculatePeaks;
 
     void recalculatePeaks();
     void overviewDraw();
-    QPixmap pixMap;
-    QLabel *pixMapLabel;
-
     void convertAudio(QFileInfo *fileName);
     void setSourceFromConverted();
     int mouseEventPosition(const QMouseEvent *event) const;
-
-    bool is_clickable;
-    bool first_draw;
-    qreal lastDrawnValue;
-    QPaintEvent *lastPaintEvent;
-    QTimer *paintTimer;
-    bool shouldRecalculatePeaks;
 signals:
   void barClicked(int);
 };
