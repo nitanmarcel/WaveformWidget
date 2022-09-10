@@ -43,18 +43,16 @@ class WaveformWidget : public QAbstractSlider
 {
     Q_PROPERTY( QColor waveformColor MEMBER m_waveformColor );
     Q_PROPERTY( QColor waveformProgressColor MEMBER m_progressColor );
-    Q_PROPERTY( QColor backgroundColor MEMBER m_backgroundColor );
+    Q_PROPERTY( QColor waveformBackgroundColor MEMBER m_waveformBackgroundColor );
     Q_OBJECT
 public:
     WaveformWidget(QWidget *parent = nullptr);
     ~WaveformWidget();
     void setSource(QFileInfo *fileName);
-    void setFfmpegConvertToMono(bool convert);
     void resetFile(QFileInfo *fileName);
     enum FileHandlingMode {FULL_CACHE, DISK_MODE};
     void setColor(QColor color);
     void setFileHandlingMode(FileHandlingMode mode);
-    void setFfmpegPath(QString path);
     void setClickable(bool clickable);
     FileHandlingMode getFileHandlingMode();
 
@@ -71,14 +69,11 @@ private:
     vector<double> m_dataVector;
     QString m_audioFilePath;
     double m_padding;
-    bool m_ffmpegConvertToMono;
     QSize m_lastSize;
     QColor m_waveformColor { Qt::blue };
     QColor m_progressColor { QColor(246, 134, 86) };
-    QColor m_backgroundColor { Qt::transparent };
-    QProcess *m_convert_process;
+    QColor m_waveformBackgroundColor { Qt::transparent };
     double m_scaleFactor;
-    QString m_ffmpeg_path;
     QPixmap m_pixMap;
     QLabel *m_pixMapLabel;
     bool m_is_clickable;
@@ -88,8 +83,6 @@ private:
 
     void recalculatePeaks();
     void overviewDraw();
-    void convertAudio(QFileInfo *fileName);
-    void setSourceFromConverted();
     int mouseEventPosition(const QMouseEvent *event) const;
 signals:
   void barClicked(int);

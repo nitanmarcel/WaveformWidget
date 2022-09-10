@@ -40,13 +40,9 @@ WaveformWidget::WaveformWidget(QWidget *parent) : QAbstractSlider(parent),
     setFocusPolicy(Qt::NoFocus);
 
     this->m_srcAudioFile = new AudioUtil();
-    this->m_ffmpegConvertToMono = true;
-    this->m_convert_process = new QProcess;
     this->m_pixMapLabel = new QLabel(this);
     this->m_pixMapLabel->show();
     this->m_shouldRecalculatePeaks = true;
-    connect(m_convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConverted);
-
     this->m_paintTimer = new QTimer(this);
     connect(this->m_paintTimer, &QTimer::timeout, this, &WaveformWidget::overviewDraw);
     m_paintTimer->setInterval(100);
@@ -62,34 +58,11 @@ WaveformWidget::~WaveformWidget()
 
 void WaveformWidget::setSource(QFileInfo *fileName)
 {
-    this->m_audioFilePath = fileName->canonicalFilePath();
-    if ((fileName->completeSuffix() != "wav" && !this->m_ffmpeg_path.isEmpty()) || (this->m_ffmpegConvertToMono && !this->m_ffmpeg_path.isEmpty()))
-    {
-        this->convertAudio(fileName);
-    }
-    else
-    {
-        this->m_currentFileHandlingMode = FULL_CACHE;
-        this->resetFile(fileName);
-        this->m_scaleFactor = -1.0;
-        this->m_lastSize = this->size();
-        this->m_padding = DEFAULT_PADDING;
-    }
-}
-
-void WaveformWidget::setSourceFromConverted()
-{
-    if (!this->m_audioFilePath.isEmpty())
-    {
-        QFileInfo *audioFileInfo = new QFileInfo(m_audioFilePath);
-        QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + audioFileInfo->completeBaseName() + QString(".wav");
-        QFileInfo *fileInfo = new QFileInfo(newFileName);
-        this->m_currentFileHandlingMode = FULL_CACHE;
-        this->resetFile(fileInfo);
-        this->m_scaleFactor = -1.0;
-        this->m_lastSize = this->size();
-        this->m_padding = DEFAULT_PADDING;
-    }
+    this->m_currentFileHandlingMode = FULL_CACHE;
+    this->resetFile(fileName);
+    this->m_scaleFactor = -1.0;
+    this->m_lastSize = this->size();
+    this->m_padding = DEFAULT_PADDING;
 }
 
 void WaveformWidget::mousePressEvent(QMouseEvent *event)
@@ -218,11 +191,21 @@ void WaveformWidget::recalculatePeaks()
             for(int i = 0; i < totalFrames; i += frameIncrement)
             {
                 regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
-                double frameAbsL = fabs(regionMax[0]);
-                double frameAbsR = fabs(regionMax[1]);
+                if (regionMax.size() == 2)
+                {
+                    double frameAbsL = fabs(regionMax[0]);
+                    double frameAbsR = fabs(regionMax[1]);
+                    this->m_peakVector.push_back(frameAbsL);
+                    this->m_peakVector.push_back(frameAbsR);
+                }
+                else
+                {
+                    double frameAbsL = fabs(0.0);
+                    double frameAbsR = fabs(0.0);
+                    this->m_peakVector.push_back(frameAbsL);
+                    this->m_peakVector.push_back(frameAbsR);
 
-                this->m_peakVector.push_back(frameAbsL);
-                this->m_peakVector.push_back(frameAbsR);
+                }
             }
         }
 
@@ -264,7 +247,7 @@ void WaveformWidget::overviewDraw()
          this->recalculatePeaks();
     m_pixMap = QPixmap(this->m_lastSize);
     m_pixMap.scaled(m_lastSize);
-    m_pixMap.fill(this->m_backgroundColor);
+    m_pixMap.fill(this->m_waveformBackgroundColor);
     QPainter painter(&m_pixMap);
 
     int minX = this->m_pixMap.rect().x();
@@ -336,44 +319,6 @@ void WaveformWidget::overviewDraw()
 void WaveformWidget::setColor(QColor color)
 {
     this->m_waveformColor = color;
-}
-
-void WaveformWidget::setFfmpegConvertToMono(bool convert)
-{
-    this->m_ffmpegConvertToMono = convert;
-}
-
-/**
- * @brief sets the path to ffmpeg binary to use for processing non wav files
- * @param path to ffmpeg binary
- */
-void WaveformWidget::setFfmpegPath(QString path)
-{
-    this->m_ffmpeg_path = path;
-}
-
-void WaveformWidget::convertAudio(QFileInfo *fileName)
-{
-    QString newFileName = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + QDir::separator() + fileName->completeBaseName() + QString(".wav");
-    QStringList params;
-    if (this->m_ffmpegConvertToMono)
-        params << "-y"
-               << "-i"
-               << fileName->canonicalFilePath()
-               << "-af"
-               << "pan=mono|c0=.5*c0+.5*c1"
-               << "-acodec"
-               << "pcm_u8"
-               << newFileName;
-    else
-        params << "-y"
-               << "-i"
-               << fileName->canonicalFilePath()
-               << "-acodec"
-               << "pcm_u8"
-               << newFileName;
-
-    m_convert_process->start(this->m_ffmpeg_path, params);
 }
 
 
