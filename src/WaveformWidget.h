@@ -23,6 +23,9 @@
 #include <QProcess>
 #include <QFileInfo>
 #include <QMouseEvent>
+#include <QPixmap>
+#include <QLabel>
+#include <QTimer>
 
 /*!
     \file WaveformWidget.h
@@ -56,7 +59,6 @@ public:
 
 protected:
     virtual void resizeEvent(QResizeEvent *);
-    virtual void paintEvent( QPaintEvent * event );
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event);
 
@@ -81,13 +83,20 @@ private:
     QString ffmpeg_path;
 
     void recalculatePeaks();
-    void overviewDraw(QPaintEvent* event);
+    void overviewDraw();
+    QPixmap pixMap;
+    QLabel *pixMapLabel;
 
     void convertAudio(QFileInfo *fileName);
     void setSourceFromConverted();
     int mouseEventPosition(const QMouseEvent *event) const;
 
     bool is_clickable;
+    bool first_draw;
+    qreal lastDrawnValue;
+    QPaintEvent *lastPaintEvent;
+    QTimer *paintTimer;
+    bool shouldRecalculatePeaks;
 signals:
   void barClicked(int);
 };

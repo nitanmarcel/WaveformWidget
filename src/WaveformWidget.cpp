@@ -42,7 +42,16 @@ WaveformWidget::WaveformWidget(QWidget *parent) : QAbstractSlider(parent),
     this->srcAudioFile = new AudioUtil();
     this->ffmpegConvertToMono = true;
     this->convert_process = new QProcess;
+    this->first_draw = true;
+    this->pixMapLabel = new QLabel(this);
+    this->pixMapLabel->show();
+    this->shouldRecalculatePeaks = true;
     connect(convert_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &WaveformWidget::setSourceFromConverted);
+
+    this->paintTimer = new QTimer(this);
+    connect(this->paintTimer, &QTimer::timeout, this, &WaveformWidget::overviewDraw);
+    paintTimer->setInterval(100);
+    paintTimer->start();
 }
 
 /*The AudioUtil instance "srcAudioFile" is our only dynamically allocated object*/
@@ -147,6 +156,7 @@ void WaveformWidget::resetFile(QFileInfo *fileName)
 
     this->peakVector.clear();
     this->dataVector.clear();
+    this->shouldRecalculatePeaks = true;
     this->repaint();
  }
 
@@ -236,23 +246,7 @@ void WaveformWidget::recalculatePeaks()
                 this->peakVector.push_back(frameAbs);
             }
         }
-}
-
-void WaveformWidget::paintEvent( QPaintEvent * event )
-{
-
-#ifdef DEBUG
-    char m[200];
-    sprintf(m, "widget width: %d\naudio file size in frames:%d\n", this->width(), this->srcAudioFile->getTotalFrames());
-    qDebug()<<m;
-#endif
-
-    if (srcAudioFile->getSndFIleNotEmpty())
-    {
-        this->recalculatePeaks();
-        this->overviewDraw(event);
-        this->lastSize = this->size();
-    }
+        this->shouldRecalculatePeaks = false;
 }
 
 /*
@@ -261,12 +255,21 @@ void WaveformWidget::paintEvent( QPaintEvent * event )
     pixel of the widget.  The function steps through this vector and draws two vertical bars
     for each such value -- one above the Y-axis midpoint for the channel, and one below.
 */
-void WaveformWidget::overviewDraw(QPaintEvent *event)
+void WaveformWidget::overviewDraw()
 {
-    QPainter painter(this);
+    if (!this->srcAudioFile->getSndFIleNotEmpty())
+        return;
+     if ((qreal)value() / maximum() * width() == lastDrawnValue)
+         return;
+     if (this->shouldRecalculatePeaks)
+         this->recalculatePeaks();
 
-    int minX = event->region().boundingRect().x();
-    int maxX = event->region().boundingRect().x() + event->region().boundingRect().width();
+    pixMap = QPixmap(size());
+    pixMap.fill(Qt::transparent);
+    QPainter painter(&pixMap);
+
+    int minX = this->pixMap.rect().x(); //lastPaintEvent->region().boundingRect().x();
+    int maxX = this->pixMap.rect().x() + this->pixMap.rect().width();
 
     /*grab peak values for each region to be represented by a pixel in the visible
     portion of the widget, scale them, and draw: */
@@ -320,6 +323,10 @@ void WaveformWidget::overviewDraw(QPaintEvent *event)
            }
     }
 
+    this->pixMapLabel->setPixmap(pixMap);
+    this->pixMapLabel->resize(size());
+    lastDrawnValue = (qreal)value() / maximum() * width();
+    this->lastSize = this->size();
 }
 
 /*!
