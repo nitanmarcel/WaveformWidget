@@ -361,8 +361,8 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
         params << "-y"
                << "-i"
                << fileName->canonicalFilePath()
-               << "-ac"
-               << "1"
+               << "-af"
+               << "pan=mono|c0=.5*c0+.5*c1"
                << "-acodec"
                << "pcm_u8"
                << newFileName;
