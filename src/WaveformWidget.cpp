@@ -262,8 +262,8 @@ void WaveformWidget::overviewDraw()
          return;
      if (this->m_shouldRecalculatePeaks)
          this->recalculatePeaks();
-
-    m_pixMap = QPixmap(size());
+    m_pixMap = QPixmap(this->m_lastSize);
+    m_pixMap.scaled(m_lastSize);
     m_pixMap.fill(this->m_backgroundColor);
     QPainter painter(&m_pixMap);
 
@@ -323,7 +323,7 @@ void WaveformWidget::overviewDraw()
     }
 
     this->m_pixMapLabel->setPixmap(m_pixMap);
-    this->m_pixMapLabel->resize(size());
+    this->m_pixMapLabel->resize(this->m_lastSize);
     m_lastDrawnValue = (qreal)value() / maximum() * width();
     this->m_lastSize = this->size();
 }
@@ -377,8 +377,10 @@ void WaveformWidget::convertAudio(QFileInfo *fileName)
 }
 
 
-void WaveformWidget::resizeEvent(QResizeEvent *)
+void WaveformWidget::resizeEvent(QResizeEvent *e)
 {
-
+    QAbstractSlider::resizeEvent(e);
+    m_shouldRecalculatePeaks = true;
+    m_lastSize = e->size();
 }
 
