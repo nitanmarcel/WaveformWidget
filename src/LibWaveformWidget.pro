@@ -7,7 +7,7 @@ TEMPLATE = lib
 
 CONFIG += dll
 
-QT += widgets
+QT += widgets concurrent
 
 INCLUDEPATH += /usr/include
 

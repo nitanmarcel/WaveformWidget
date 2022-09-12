@@ -4,6 +4,8 @@
 #include <QDir>
 #include <QToolTip>
 #include <QDebug>
+#include <QThread>
+#include <QtConcurrent>
 
 #define DEFAULT_PADDING 0.3
 #define LINE_WIDTH 1
@@ -43,6 +45,7 @@ WaveformWidget::WaveformWidget(QWidget *parent) : QAbstractSlider(parent),
     this->m_pixMapLabel = new QLabel(this);
     this->m_pixMapLabel->show();
     this->m_shouldRecalculatePeaks = true;
+    this->m_isRecalculatingPeaks = false;
     this->m_paintTimer = new QTimer(this);
     connect(this->m_paintTimer, &QTimer::timeout, this, &WaveformWidget::overviewDraw);
     m_paintTimer->setInterval(100);
@@ -168,67 +171,72 @@ WaveformWidget::FileHandlingMode WaveformWidget::getFileHandlingMode()
 
 void WaveformWidget::recalculatePeaks()
 {
-    /*calculate scale factor*/
-    vector<double> normPeak = m_srcAudioFile->calculateNormalizedPeaks();
-    double peak = MathUtil::getVMax(normPeak);
-    this->m_scaleFactor = 1.0/peak;
-    this->m_scaleFactor = m_scaleFactor - m_scaleFactor * this->m_padding;
-
-    /*calculate frame-grab increments*/
-    int totalFrames = m_srcAudioFile->getTotalFrames();
-    int frameIncrement = totalFrames/this->width();
-        if(m_srcAudioFile->getNumChannels() == 2)
-        {
-            this->m_peakVector.clear();
-
-            vector<double> regionMax;
-
-            /*
-              Populate the m_peakVector.at with peak values for each region of the source audio
-              file to be represented by a single pixel of the widget.
-            */
-
-            for(int i = 0; i < totalFrames; i += frameIncrement)
-            {
-                regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
-                if (regionMax.size() == 2)
-                {
-                    double frameAbsL = fabs(regionMax[0]);
-                    double frameAbsR = fabs(regionMax[1]);
-                    this->m_peakVector.push_back(frameAbsL);
-                    this->m_peakVector.push_back(frameAbsR);
-                }
-                else
-                {
-                    double frameAbsL = fabs(0.0);
-                    double frameAbsR = fabs(0.0);
-                    this->m_peakVector.push_back(frameAbsL);
-                    this->m_peakVector.push_back(frameAbsR);
-
-                }
-            }
-        }
-
-        if(this->m_srcAudioFile->getNumChannels() == 1)
-        {
-
-            this->m_peakVector.clear();
-            vector<double> regionMax;
-
-            /*
-              Populate the m_peakVector.at with peak values for each region of the source audio
-              file to be represented by a single pixel of the widget.
-            */
-
-            for(int i = 0; i < totalFrames; i += frameIncrement)
-            {
-                regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
-                double frameAbs = fabs(regionMax[0]);
-
-                this->m_peakVector.push_back(frameAbs);
-            }
-        }
+    if (this->m_srcAudioFile->getSndFIleNotEmpty() && !this->m_isRecalculatingPeaks)
+    {
+        this->m_isRecalculatingPeaks = true;
         this->m_shouldRecalculatePeaks = false;
+        /*calculate scale factor*/
+        vector<double> normPeak = m_srcAudioFile->calculateNormalizedPeaks();
+        double peak = MathUtil::getVMax(normPeak);
+        this->m_scaleFactor = 1.0/peak;
+        this->m_scaleFactor = m_scaleFactor - m_scaleFactor * this->m_padding;
+
+        /*calculate frame-grab increments*/
+        int totalFrames = m_srcAudioFile->getTotalFrames();
+        int frameIncrement = totalFrames/this->width();
+            if(m_srcAudioFile->getNumChannels() == 2)
+            {
+                this->m_peakVector.clear();
+
+                vector<double> regionMax;
+
+                /*
+                  Populate the m_peakVector.at with peak values for each region of the source audio
+                  file to be represented by a single pixel of the widget.
+                */
+
+                for(int i = 0; i < totalFrames; i += frameIncrement)
+                {
+                    regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
+                    if (regionMax.size() == 2)
+                    {
+                        double frameAbsL = fabs(regionMax[0]);
+                        double frameAbsR = fabs(regionMax[1]);
+                        this->m_peakVector.push_back(frameAbsL);
+                        this->m_peakVector.push_back(frameAbsR);
+                    }
+                    else
+                    {
+                        double frameAbsL = fabs(0.0);
+                        double frameAbsR = fabs(0.0);
+                        this->m_peakVector.push_back(frameAbsL);
+                        this->m_peakVector.push_back(frameAbsR);
+
+                    }
+                }
+            }
+
+            if(this->m_srcAudioFile->getNumChannels() == 1)
+            {
+
+                this->m_peakVector.clear();
+                vector<double> regionMax;
+
+                /*
+                  Populate the m_peakVector.at with peak values for each region of the source audio
+                  file to be represented by a single pixel of the widget.
+                */
+
+                for(int i = 0; i < totalFrames; i += frameIncrement)
+                {
+                    regionMax = m_srcAudioFile->peakForRegion(i, i+frameIncrement);
+                    double frameAbs = fabs(regionMax[0]);
+
+                    this->m_peakVector.push_back(frameAbs);
+                }
+            }
+            this->m_isRecalculatingPeaks = false;
+    }
 }
 
 /*
@@ -241,10 +249,16 @@ void WaveformWidget::overviewDraw()
 {
     if (!this->m_srcAudioFile->getSndFIleNotEmpty())
         return;
-     if ((qreal)value() / maximum() * width() == m_lastDrawnValue)
+    if (this->m_isRecalculatingPeaks)
+        return;
+    if ((qreal)value() / maximum() * width() == m_lastDrawnValue)
          return;
-     if (this->m_shouldRecalculatePeaks)
-         this->recalculatePeaks();
+    if (this->m_shouldRecalculatePeaks)
+    {
+        QFuture future = QtConcurrent::run(this, &WaveformWidget::recalculatePeaks); //this->recalculatePeaks();
+        return;
+    }
+
     m_pixMap = QPixmap(this->m_lastSize);
     m_pixMap.scaled(m_lastSize);
     m_pixMap.fill(this->m_waveformBackgroundColor);
@@ -325,7 +339,8 @@ void WaveformWidget::setColor(QColor color)
 void WaveformWidget::resizeEvent(QResizeEvent *e)
 {
     QAbstractSlider::resizeEvent(e);
-    m_shouldRecalculatePeaks = true;
+    if (!m_isClickHold)
+        m_shouldRecalculatePeaks = true;
     m_lastSize = e->size();
 }
 

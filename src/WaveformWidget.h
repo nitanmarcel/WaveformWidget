@@ -80,6 +80,8 @@ private:
     qreal m_lastDrawnValue;
     QTimer *m_paintTimer;
     bool m_shouldRecalculatePeaks;
+    bool m_isRecalculatingPeaks;
+    bool m_isClickHold;
 
     void recalculatePeaks();
     void overviewDraw();
