@@ -82,7 +82,10 @@ void WaveformWidget::setBreakPoint(int pos)
 
 int WaveformWidget::getBreakPoint()
 {
-    return m_breakPointPos * (maximum() / width());
+    if (this->m_hasBreakPoint)
+        return m_breakPointPos * (maximum() / width());
+    else
+        return 0;
 }
 
 
