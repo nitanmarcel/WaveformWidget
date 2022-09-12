@@ -108,7 +108,7 @@ void WaveformWidget::mousePressEvent(QMouseEvent *event)
           emit breakPointRemoved();
       }
   else if ((event->button() == Qt::LeftButton) && m_is_clickable)
-      emit barClicked(mouseEventPosition(event));
+      emit barClicked(event->x() > 3 ? mouseEventPosition(event) : 0);
 
   event->accept();
 }
