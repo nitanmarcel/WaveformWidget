@@ -94,21 +94,22 @@ int WaveformWidget::getBreakPoint()
 void WaveformWidget::mousePressEvent(QMouseEvent *event)
 {
   if ((event->button() == Qt::RightButton) && m_is_clickable)
-      if (event->x() != this->m_breakPointPos)
+      if (event->x() != this->m_breakPointPos || event->x() > 5)
       {
           m_breakPointPos = event->x();
           this->m_hasBreakPoint = true;
-          this->m_updateBreakPointRequired = true;
           emit breakPointSet(mouseEventPosition(event));
+          this->m_updateBreakPointRequired = true;
       }
       else
-        {
+       {
           this->m_hasBreakPoint = false;
-          this->m_updateBreakPointRequired = true;
+          this->m_breakPointPos = 0;
           emit breakPointRemoved();
+          this->m_updateBreakPointRequired = true;
       }
   else if ((event->button() == Qt::LeftButton) && m_is_clickable)
-      emit barClicked(event->x() > 3 ? mouseEventPosition(event) : 0);
+      emit barClicked(event->x() > 5 ? mouseEventPosition(event) : 0);
 
   event->accept();
 }
