@@ -68,10 +68,42 @@ void WaveformWidget::setSource(QFileInfo *fileName)
     this->m_padding = DEFAULT_PADDING;
 }
 
+void WaveformWidget::resetBreakPoint()
+{
+    m_updateBreakPointRequired = true;
+    m_hasBreakPoint = false;
+}
+
+void WaveformWidget::setBreakPoint(int pos)
+{
+    m_breakPointPos = pos / (maximum() / width());
+    m_updateBreakPointRequired = true;
+}
+
+int WaveformWidget::getBreakPoint()
+{
+    return m_breakPointPos * (maximum() / width());
+}
+
+
 void WaveformWidget::mousePressEvent(QMouseEvent *event)
 {
-  if ((event->button() == Qt::LeftButton) && m_is_clickable)
-    emit barClicked(mouseEventPosition(event));
+  if ((event->button() == Qt::RightButton) && m_is_clickable)
+      if (event->x() != this->m_breakPointPos)
+      {
+          m_breakPointPos = event->x();
+          this->m_hasBreakPoint = true;
+          this->m_updateBreakPointRequired = true;
+          emit breakPointSet(mouseEventPosition(event));
+      }
+      else
+        {
+          this->m_hasBreakPoint = false;
+          this->m_updateBreakPointRequired = true;
+          emit breakPointRemoved();
+      }
+  else if ((event->button() == Qt::LeftButton) && m_is_clickable)
+      emit barClicked(mouseEventPosition(event));
 
   event->accept();
 }
@@ -251,7 +283,7 @@ void WaveformWidget::overviewDraw()
         return;
     if (this->m_isRecalculatingPeaks)
         return;
-    if ((qreal)value() / maximum() * width() == m_lastDrawnValue)
+    if ((qreal)value() / maximum() * width() == m_lastDrawnValue && !m_updateBreakPointRequired)
          return;
     if (this->m_shouldRecalculatePeaks)
     {
@@ -294,7 +326,6 @@ void WaveformWidget::overviewDraw()
 
                 painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
                 painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
-
                 counter++;
             }
 
@@ -319,10 +350,17 @@ void WaveformWidget::overviewDraw()
            }
     }
 
+    if (this->m_breakPointPos > 0 && this->m_hasBreakPoint)
+    {
+        painter.setPen(QPen(Qt::gray, 2, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(m_breakPointPos, 0, m_breakPointPos, 1000);
+    }
+
     this->m_pixMapLabel->setPixmap(m_pixMap);
     this->m_pixMapLabel->resize(this->m_lastSize);
     m_lastDrawnValue = (qreal)value() / maximum() * width();
     this->m_lastSize = this->size();
+
 }
 
 /*!

@@ -54,6 +54,9 @@ public:
     void setColor(QColor color);
     void setFileHandlingMode(FileHandlingMode mode);
     void setClickable(bool clickable);
+    void resetBreakPoint();
+    void setBreakPoint(int pos);
+    int getBreakPoint();
     FileHandlingMode getFileHandlingMode();
 
 protected:
@@ -82,12 +85,17 @@ private:
     bool m_shouldRecalculatePeaks;
     bool m_isRecalculatingPeaks;
     bool m_isClickHold;
+    bool m_updateBreakPointRequired;
+    bool m_hasBreakPoint;
+    int m_breakPointPos;
 
     void recalculatePeaks();
     void overviewDraw();
     int mouseEventPosition(const QMouseEvent *event) const;
 signals:
   void barClicked(int);
+  void breakPointRemoved();
+  int breakPointSet(int position);
 };
 
 #endif // WAVEFORMWIDGET_H
