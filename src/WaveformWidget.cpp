@@ -61,6 +61,8 @@ WaveformWidget::~WaveformWidget()
 
 void WaveformWidget::setSource(QFileInfo *fileName)
 {
+    if (this->m_hasBreakPoint)
+        this->resetBreakPoint();
     this->m_currentFileHandlingMode = FULL_CACHE;
     this->resetFile(fileName);
     this->m_scaleFactor = -1.0;
@@ -355,7 +357,7 @@ void WaveformWidget::overviewDraw()
 
     if (this->m_breakPointPos > 0 && this->m_hasBreakPoint)
     {
-        painter.setPen(QPen(Qt::gray, 2, Qt::SolidLine, Qt::RoundCap));
+        painter.setPen(QPen(Qt::darkGray, 2, Qt::SolidLine, Qt::RoundCap));
         painter.drawLine(m_breakPointPos, 0, m_breakPointPos, 1000);
     }
 
