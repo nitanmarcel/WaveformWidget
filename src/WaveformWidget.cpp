@@ -287,7 +287,7 @@ void WaveformWidget::overviewDraw()
          return;
     if (this->m_shouldRecalculatePeaks)
     {
-        QFuture future = QtConcurrent::run(this, &WaveformWidget::recalculatePeaks); //this->recalculatePeaks();
+        QtConcurrent::run(this, &WaveformWidget::recalculatePeaks); //this->recalculatePeaks();
         return;
     }
 
