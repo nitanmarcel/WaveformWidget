@@ -81,7 +81,7 @@ void WaveformWidget::setBreakPoint(int pos)
 {
     m_breakPointPos = pos / (maximum() / width());
     m_updateBreakPointRequired = true;
-    emit breakPointSet(mouseEventPosition(event));
+    emit breakPointSet(pos * (maximum() / width()));
 }
 
 int WaveformWidget::getBreakPoint()
