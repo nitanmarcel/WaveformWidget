@@ -74,12 +74,14 @@ void WaveformWidget::resetBreakPoint()
 {
     m_updateBreakPointRequired = true;
     m_hasBreakPoint = false;
+    emit breakPointRemoved();
 }
 
 void WaveformWidget::setBreakPoint(int pos)
 {
     m_breakPointPos = pos / (maximum() / width());
     m_updateBreakPointRequired = true;
+    emit breakPointSet(mouseEventPosition(event));
 }
 
 int WaveformWidget::getBreakPoint()
@@ -94,7 +96,7 @@ int WaveformWidget::getBreakPoint()
 void WaveformWidget::mousePressEvent(QMouseEvent *event)
 {
   if ((event->button() == Qt::RightButton) && m_is_clickable)
-      if (event->x() != this->m_breakPointPos || event->x() > 5)
+      if ((event->x() > this->m_breakPointPos + 3) || (event->x() < this->m_breakPointPos - 3))
       {
           m_breakPointPos = event->x();
           this->m_hasBreakPoint = true;
