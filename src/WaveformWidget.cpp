@@ -214,7 +214,6 @@ void WaveformWidget::recalculatePeaks()
     if (this->m_srcAudioFile->getSndFIleNotEmpty() && !this->m_isRecalculatingPeaks)
     {
         this->m_isRecalculatingPeaks = true;
-        this->m_shouldRecalculatePeaks = false;
         /*calculate scale factor*/
         vector<double> normPeak = m_srcAudioFile->calculateNormalizedPeaks();
         double peak = MathUtil::getVMax(normPeak);
@@ -275,8 +274,9 @@ void WaveformWidget::recalculatePeaks()
                     this->m_peakVector.push_back(frameAbs);
                 }
             }
-            this->m_isRecalculatingPeaks = false;
     }
+    this->m_isRecalculatingPeaks = false;
+    this->m_shouldRecalculatePeaks = false;
 }
 
 /*
@@ -287,11 +287,7 @@ void WaveformWidget::recalculatePeaks()
 */
 void WaveformWidget::overviewDraw()
 {
-    if (!this->m_srcAudioFile->getSndFIleNotEmpty())
-        return;
-    if (this->m_isRecalculatingPeaks)
-        return;
-    if ((qreal)value() / maximum() * width() == m_lastDrawnValue && !m_updateBreakPointRequired)
+    if (((qreal)value() / maximum() * width() == m_lastDrawnValue && !m_updateBreakPointRequired) || this->m_isRecalculatingPeaks || this->m_audioFilePath.isEmpty())
          return;
     if (this->m_shouldRecalculatePeaks)
     {
@@ -307,57 +303,73 @@ void WaveformWidget::overviewDraw()
     int minX = this->m_pixMap.rect().x();
     int maxX = this->m_pixMap.rect().x() + this->m_pixMap.rect().width();
 
-    /*grab peak values for each region to be represented by a pixel in the visible
-    portion of the widget, scale them, and draw: */
-    if(this->m_srcAudioFile->getNumChannels() == 2)
+    int startIndex = 2*minX;
+    int endIndex = 2*maxX;
+
+    int yMidpoint = this->height()/2;
+    int counter = minX;
+
+    if (this->m_srcAudioFile->getSndFIleNotEmpty())
     {
+        /*grab peak values for each region to be represented by a pixel in the visible
+        portion of the widget, scale them, and draw: */
+        if(this->m_srcAudioFile->getNumChannels() == 2)
+        {
+                for(int i = startIndex;  i < endIndex; i+=2)
+                {
+                    if (counter < (qreal)value() / maximum() * width())
+                        painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
+                    else
+                        painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
 
-            int startIndex = 2*minX;
-            int endIndex = 2*maxX;
-
-            int yMidpoint = this->height()/2;
-            int counter = minX;
-
-            for(int i = startIndex;  i < endIndex; i+=2)
-            {
-                if (counter < (qreal)value() / maximum() * width())
-                    painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
-                else
-                    painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
-
-                int chan1YMidpoint = yMidpoint - this->height()/4;
-                int chan2YMidpoint = yMidpoint + this->height()/4;
+                    int chan1YMidpoint = yMidpoint - this->height()/4;
+                    int chan2YMidpoint = yMidpoint + this->height()/4;
 
 
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
-                painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
+                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
+                    painter.drawLine(counter, chan1YMidpoint, counter, chan1YMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor));
 
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
-                painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
-                counter++;
-            }
+                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint+((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
+                    painter.drawLine(counter, chan2YMidpoint, counter, chan2YMidpoint -((this->height()/4)*this->m_peakVector.at(i+1)*m_scaleFactor)   );
+                    counter++;
+                }
+        }
 
+        if(m_srcAudioFile->getNumChannels() == 1)
+        {
+               int curIndex = minX;
+               int yMidpoint = this->height()/2;
+
+               for(unsigned int i = 0; i < m_peakVector.size(); i++)
+               {
+                   if (curIndex < (qreal)value() / maximum() * width())
+                       painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
+                   else
+                       painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
+                   painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
+                   painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
+
+                   curIndex++;
+               }
+        }
     }
 
-    if(m_srcAudioFile->getNumChannels() == 1)
+    else
     {
-           int curIndex = minX;
-           int yMidpoint = this->height()/2;
+        int curIndex = minX;
+        int yMidpoint = this->height()/2;
+        for(int i = 0; i < endIndex; i++)
+        {
+            if (curIndex < (qreal)value() / maximum() * width())
+                painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
+            else
+                painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
+            painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+(this->height()));
+            painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint-(this->height()));
 
-
-           for(unsigned int i = 0; i < m_peakVector.size(); i++)
-           {
-               if (curIndex < (qreal)value() / maximum() * width())
-                   painter.setPen(QPen(this->m_progressColor, 1, Qt::SolidLine, Qt::RoundCap));
-               else
-                   painter.setPen(QPen(this->m_waveformColor, 1, Qt::SolidLine, Qt::RoundCap));
-               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint+((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
-               painter.drawLine(curIndex, yMidpoint, curIndex, yMidpoint -((this->height()/4)*this->m_peakVector.at(i)*m_scaleFactor)   );
-
-               curIndex++;
-           }
+            curIndex++;
+        }
     }
-
     if (this->m_breakPointPos > 0 && this->m_hasBreakPoint)
     {
         painter.setPen(QPen(Qt::darkGray, 2, Qt::SolidLine, Qt::RoundCap));
